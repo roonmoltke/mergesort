@@ -1,0 +1,9 @@
+#include "error.h"
+
+
+
+
+  void memory_allocation_error(){ 
+  array = (int*)malloc(s*sizeof(int));
+  return(  (array==0) ? 0 :  1);
+}

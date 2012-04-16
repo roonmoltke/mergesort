@@ -1,0 +1,176 @@
+#include "julia_set.h"
+
+
+
+static pthread_t thread[MAX_THREADS];
+
+struct prod_cons_buffer_t {
+
+  struct pixel_t pixel_buffer[MAX_THREADS];
+  int head;
+  int tail;
+  int size;
+  pthread_mutex_t pixel_buffer_lock;
+  pthread_cond_t pixel_buffer_not_full_cond;
+  pthread_cond_t pixel_buffer_not_empty_cond;
+};
+
+struct consumer_args_t {
+  struct prod_cons_buffer_t* buffer;
+  struct julia_set_t * julia_set;
+}; 
+
+static void *slave_thread_func(void*);
+static void compute_z(struct pixel_t* pixel,int w, int h);
+
+static void  slave_threads_create(unsigned int,struct consumer_args_t*);
+
+
+int init_julia_set (struct julia_set_t* julia_set,
+		    unsigned int width,
+		    unsigned int height) {
+  if (width<=MAX_WIDTH && height <= MAX_HEIGHT) {
+  julia_set->width = width;
+  julia_set->height = height;
+  int i,j;
+  for (i=0;i<width;i++)
+    for (j=0;j<height;j++) {
+      julia_set->pixel_elem[i][j].x=i;
+      julia_set->pixel_elem[i][j].x=j;
+    }
+  
+  return 1;
+  } else
+    return 0;
+}
+
+void compute_julia_set (struct julia_set_t* julia_set, 
+			unsigned int num_threads) {
+  struct prod_cons_buffer_t* buffer;
+  buffer = (struct prod_cons_buffer_t*)malloc(sizeof (struct prod_cons_buffer_t));
+  buffer->head = 0;
+  buffer->tail=0;
+  buffer->size=0;
+
+  pthread_mutex_init(&buffer->pixel_buffer_lock,NULL);
+  pthread_cond_init(&buffer->pixel_buffer_not_full_cond,NULL);
+  pthread_cond_init(&buffer->pixel_buffer_not_empty_cond,NULL);
+
+  struct consumer_args_t * consumer_args;
+  consumer_args = (struct consumer_args_t*)malloc(sizeof(struct consumer_args_t));
+  consumer_args->buffer=buffer;
+  consumer_args->julia_set = julia_set;
+
+  slave_threads_create(num_threads,consumer_args);
+  
+  unsigned int i,j;
+  for (i=0;i<julia_set->width;i++) {
+    for (i=0;i<julia_set->height;i++) {
+    
+      pthread_mutex_lock(&buffer->pixel_buffer_lock);
+
+      while (buffer->size==MAX_THREADS)
+	pthread_cond_wait (&buffer->pixel_buffer_not_full_cond,&buffer->pixel_buffer_lock);
+    
+      buffer->pixel_buffer[buffer->head]=julia_set->pixel_elem[i][j];
+      buffer->head = (buffer->head + 1) % MAX_THREADS;
+      buffer->size++;
+
+          
+      if (buffer->size >0  )
+	pthread_cond_signal (&buffer->pixel_buffer_not_empty_cond);
+	   
+      pthread_mutex_unlock(&buffer->pixel_buffer_lock);
+    }
+  }
+}
+  
+
+static void  slave_threads_create(unsigned int num_slaves,struct consumer_args_t* consumer_args) {
+  unsigned int i = 0;
+  for (i=0;i<num_slaves;i++) {
+    pthread_create(&thread[i],NULL,slave_thread_func,(void*)consumer_args);
+  }
+
+}
+
+static void *slave_thread_func(void* vp_consumer_args) {
+  
+  struct consumer_args_t* consumer_args;
+  consumer_args = (struct consumer_args_t*)vp_consumer_args;
+  struct pixel_t pixel_to_compute;
+
+  while (1) {
+    pthread_mutex_lock(&consumer_args->buffer->pixel_buffer_lock);
+
+    while (consumer_args->buffer->size==0)
+      pthread_cond_wait (&consumer_args->buffer->pixel_buffer_not_empty_cond, &consumer_args->buffer->pixel_buffer_lock);
+      
+    pixel_to_compute = consumer_args->buffer->pixel_buffer[consumer_args->buffer->tail];
+    consumer_args->buffer->tail = (consumer_args->buffer->tail + 1) % MAX_THREADS;
+    consumer_args->buffer->size--;
+      
+    if (consumer_args->buffer->size >0 )
+      pthread_cond_signal (&consumer_args->buffer->pixel_buffer_not_full_cond);
+    
+    pthread_mutex_unlock(&consumer_args->buffer->pixel_buffer_lock);
+    
+
+    compute_z(&pixel_to_compute,consumer_args->julia_set->width,consumer_args->julia_set->height);
+    
+    pthread_mutex_lock(&consumer_args->buffer->pixel_buffer_lock);
+    
+    consumer_args->julia_set->pixel_elem[pixel_to_compute.x][pixel_to_compute.y] = pixel_to_compute;
+    pthread_mutex_unlock(&consumer_args->buffer->pixel_buffer_lock);
+    
+  }
+
+}
+
+
+
+static void compute_z(struct pixel_t *pixel,int w, int h) {
+  
+  double pi = 3.141593;
+  double xk,yk,x,y,xk1,yk1,j;
+
+  // This is Z0
+  xk = pi*((4.0*pixel->z.r)/w - 2.0);
+  yk = pi*((4.0*pixel->z.i)/h - 2.0);
+
+  for (j = 0; j < 50; ++j) {
+         
+    if (fabs(yk) > 50.0) {
+       break;
+    }
+
+    // z(k+1) = (1 + i*0.3)*sin(Z0)
+    // sin(x+iy) = sin(a)cosh(y) + i(cos(x)*sinh(y))
+    // Z = x + iy
+
+    double tmpx = sin(xk)*cosh(yk);
+    double tmpy = cos(xk)*sinh(yk);
+
+    xk1 = tmpx - 0.3*tmpy;
+    yk1 = 0.3*tmpx + tmpy;
+
+    // swap the numbers for next iteration
+    xk = xk1;
+    yk = yk1;    
+    
+  }
+
+  pixel->z.r=xk;
+  pixel->z.i=yk;
+  if (fabs(pixel->z.i)>50) {
+    pixel->r=0;
+    pixel->g=0;
+    pixel->b=0;
+  } else {
+    pixel->r=0;
+    pixel->g=0;
+    pixel->b=0;
+  }
+}
+
+

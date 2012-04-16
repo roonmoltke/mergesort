@@ -1,0 +1,44 @@
+
+#ifndef JULIA_SET_H
+#define JULIA_SET_h
+
+#include <pthread.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+#define MAX_THREADS 256
+#define MAX_WIDTH 800
+#define MAX_HEIGHT 600
+
+
+
+struct complex_num_t {
+  float r;
+  float i;
+};
+
+struct pixel_t {
+  /* coordinate */
+  int x;
+  int y;
+  /* color values */
+  unsigned int r;
+  unsigned int g;
+  unsigned int b;
+  /* complex number */
+  struct complex_num_t z; 
+};
+
+struct julia_set_t {
+  unsigned int width;
+  unsigned int height;
+  unsigned int color_depth;
+  struct pixel_t pixel_elem[MAX_WIDTH][MAX_HEIGHT];
+};
+
+
+int init_julia_set (struct julia_set_t*, unsigned int, unsigned int);
+void compute_julia_set (struct julia_set_t*, unsigned int);
+
+
+#endif 

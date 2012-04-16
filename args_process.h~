@@ -1,0 +1,10 @@
+
+#ifndef ARGS_PROCESS_H
+#define ARGS_PROCESS_h
+
+
+int args_process (int, char**, struct args_t*, struct array_t*);
+
+
+
+#endif 

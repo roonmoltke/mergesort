@@ -1,0 +1,38 @@
+TARGET = ms
+
+SRCS :=
+SRCS += main.c
+
+
+
+HDRS :=
+
+
+OBJS := $(SRCS:.c=.o)
+
+CFLAGS :=
+
+
+CFLAGS += -g
+CFLAGS += -o
+
+
+LFLAGS :=
+LFLAGS += -g
+LFLAGS += -c
+
+
+
+
+
+$(TARGET) : $(OBJS)
+	gcc $(CFLAGS) $(TARGET) $(OBJS)
+
+$(OBJS) : $(SRCS) $(HDRS)
+	gcc $(LFLAGS) $(SRCS)
+
+clean :
+	rm $(OBJS) 
+
+tags :
+	etags --members $(SRCS) $(HDRS)
