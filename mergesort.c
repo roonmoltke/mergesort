@@ -95,7 +95,7 @@ static void merge(int numbers[], int temp[], int left, int mid, int right) {
     tmp_pos = tmp_pos + 1;
   }
  
-  for (i=0; i <= num_elements; i++)
+  for (i=0; i < num_elements; i++)
   {
     numbers[right] = temp[right];
     right = right - 1;
